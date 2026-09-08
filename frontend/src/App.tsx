@@ -26,6 +26,10 @@ interface IngestStatus {
   error?: string;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? (import.meta.env.VITE_API_URL.startsWith('http') ? import.meta.env.VITE_API_URL : `https://${import.meta.env.VITE_API_URL}`)
+  : 'http://localhost:8000';
+
 // ── Main App Component ──────────────────────────────────────────────────────
 function App() {
   const [activeTab, setActiveTab] = useState<'diagnostic' | 'knowledge'>('diagnostic');
@@ -65,7 +69,7 @@ function App() {
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/resolution/solve', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/resolution/solve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ report: reportText, image: image }),
@@ -95,7 +99,7 @@ function App() {
 
     pollingInterval.current = setInterval(async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/ingest/${documentId}/status`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/ingest/${documentId}/status`);
         if (!response.ok) throw new Error('Polling failed');
         const data: IngestStatus = await response.json();
         // Normalize status to uppercase (backend sends lowercase enum values)
@@ -120,7 +124,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/ingest/', {
+      const response = await fetch(`${API_BASE_URL}/api/v1/ingest/`, {
         method: 'POST',
         body: formData,
       });
