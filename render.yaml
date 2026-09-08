@@ -83,12 +83,10 @@ services:
     staticPublishPath: ./dist
     # Les sites statiques sont gratuits sur Render
     envVars:
-      # Injecte automatiquement l'URL de l'API de production générée par Render
+      # Render ne permet pas d'injecter l'URL publique dynamiquement.
+      # À remplir manuellement dans le Dashboard Render avec l'URL du Backend (ex: https://ecofibresync-backend-xxxx.onrender.com)
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: ecofibresync-backend
-          property: host
+        sync: false
 
   # ---------------------------------------------------------------------------
   # 4. Redis (Message Broker - Valkey Managed)
