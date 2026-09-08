@@ -85,7 +85,6 @@ services:
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
-    region: frankfurt
     # Les sites statiques sont gratuits sur Render
     envVars:
       # Injecte automatiquement l'URL de l'API de production générée par Render
@@ -102,6 +101,7 @@ services:
     name: ecofibresync-redis
     region: frankfurt
     plan: free
+    ipAllowList: []
 
 databases:
   # ---------------------------------------------------------------------------
