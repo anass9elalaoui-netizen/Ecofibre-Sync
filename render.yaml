@@ -95,9 +95,17 @@ services:
           name: ecofibresync-backend
           property: host
 
+  # ---------------------------------------------------------------------------
+  # 4. Redis (Message Broker - Valkey Managed)
+  # ---------------------------------------------------------------------------
+  - type: redis
+    name: ecofibresync-redis
+    region: frankfurt
+    plan: free
+
 databases:
   # ---------------------------------------------------------------------------
-  # 4. PostgreSQL (avec pgvector)
+  # 5. PostgreSQL (avec pgvector)
   # ---------------------------------------------------------------------------
   - name: ecofibresync-db
     databaseName: ecofibresync
@@ -105,10 +113,3 @@ databases:
     region: frankfurt
     plan: free
 
-redis:
-  # ---------------------------------------------------------------------------
-  # 5. Redis (Message Broker)
-  # ---------------------------------------------------------------------------
-  - name: ecofibresync-redis
-    region: frankfurt
-    plan: free
