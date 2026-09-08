@@ -36,8 +36,6 @@ services:
           name: ecofibresync-redis
           property: connectionString
       # Variables secrètes (à remplir manuellement sur le Dashboard Render)
-      - key: OPENAI_API_KEY
-        sync: false
       - key: GOOGLE_API_KEY
         sync: false
 
@@ -71,8 +69,6 @@ services:
           type: redis
           name: ecofibresync-redis
           property: connectionString
-      - key: OPENAI_API_KEY
-        sync: false
       - key: GOOGLE_API_KEY
         sync: false
 
