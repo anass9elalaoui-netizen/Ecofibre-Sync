@@ -1,0 +1,114 @@
+# =============================================================================
+# EcoFibre Sync — Render Blueprint (Infrastructure as Code)
+# =============================================================================
+# Ce fichier permet à Render de déployer automatiquement toute l'architecture
+# depuis GitHub : Base de données, Redis, API FastAPI, Celery et Frontend React.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. API Backend (FastAPI)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: ecofibresync-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    region: frankfurt
+    plan: starter # Starter recommandé pour la prod
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecofibresync-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ecofibresync-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: ecofibresync-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: ecofibresync-redis
+          property: connectionString
+      # Variables secrètes (à remplir manuellement sur le Dashboard Render)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # 2. Background Worker (Celery)
+  # ---------------------------------------------------------------------------
+  - type: worker
+    name: ecofibresync-worker
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: celery -A celery_app.celery worker --loglevel=info
+    region: frankfurt
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecofibresync-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ecofibresync-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: ecofibresync-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: ecofibresync-redis
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # 3. Frontend (Static Site - React/Vite)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: ecofibresync-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    region: frankfurt
+    # Les sites statiques sont gratuits sur Render
+    envVars:
+      # Injecte automatiquement l'URL de l'API de production générée par Render
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: ecofibresync-backend
+          property: host
+
+databases:
+  # ---------------------------------------------------------------------------
+  # 4. PostgreSQL (avec pgvector)
+  # ---------------------------------------------------------------------------
+  - name: ecofibresync-db
+    databaseName: ecofibresync
+    user: ecofibre
+    region: frankfurt
+    plan: free
+
+redis:
+  # ---------------------------------------------------------------------------
+  # 5. Redis (Message Broker)
+  # ---------------------------------------------------------------------------
+  - name: ecofibresync-redis
+    region: frankfurt
+    plan: free

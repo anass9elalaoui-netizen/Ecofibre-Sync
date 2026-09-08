@@ -1,0 +1,132 @@
+# =============================================================================
+# EcoFibre Sync — Full Docker Compose Stack
+# =============================================================================
+# Services included:
+#   1. db (PostgreSQL 16 + pgvector)
+#   2. redis (Redis 7 - Celery Broker & Result Backend)
+#   3. backend (FastAPI Application)
+#   4. celery_worker (Celery Background Worker)
+#   5. frontend (React + Vite served via Nginx)
+#
+# Commands:
+#   - Build & Start:  docker compose up --build -d
+#   - Stop:           docker compose down
+#   - Stop & Clean:   docker compose down -v
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # 1. Database (PostgreSQL + pgvector)
+  # ---------------------------------------------------------------------------
+  db:
+    image: ankane/pgvector:latest
+    container_name: ecofibre_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecofibre
+      POSTGRES_PASSWORD: ecofibre_dev
+      POSTGRES_DB: ecofibre_sync
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecofibre -d ecofibre_sync"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # 2. Cache / Message Broker (Redis)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: ecofibre_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 3. Backend (FastAPI API Server)
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ecofibre_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=ecofibre
+      - POSTGRES_PASSWORD=ecofibre_dev
+      - POSTGRES_DB=ecofibre_sync
+      - DATABASE_URL=postgresql+asyncpg://ecofibre:ecofibre_dev@db:5432/ecofibre_sync
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # 4. Background Worker (Celery Worker)
+  # ---------------------------------------------------------------------------
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ecofibre_celery_worker
+    restart: unless-stopped
+    command: celery -A celery_app.celery worker --loglevel=info
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=ecofibre
+      - POSTGRES_PASSWORD=ecofibre_dev
+      - POSTGRES_DB=ecofibre_sync
+      - DATABASE_URL=postgresql+asyncpg://ecofibre:ecofibre_dev@db:5432/ecofibre_sync
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # 5. Frontend (React + Vite Web App)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ecofibre_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local

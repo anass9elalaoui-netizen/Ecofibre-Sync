@@ -1,0 +1,187 @@
+# =============================================================================
+# EcoFibre Sync — Backend Dependencies (requirements.txt)
+# =============================================================================
+# Chaque groupe de dépendances est documenté : quoi, pourquoi, et comment
+# il s'intègre dans l'architecture globale du système RAG.
+#
+# Installation :  pip install -r requirements.txt
+# =============================================================================
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1. FRAMEWORK WEB — FastAPI
+# ─────────────────────────────────────────────────────────────────────────────
+# FastAPI est le framework API. Il offre :
+#   - Validation automatique des requêtes via Pydantic (type safety)
+#   - Documentation interactive auto-générée (Swagger UI + ReDoc)
+#   - Support natif de l'async/await (performance I/O)
+#   - Injection de dépendances intégrée (sessions DB, auth, etc.)
+#
+# uvicorn est le serveur ASGI qui exécute l'application FastAPI.
+# Pourquoi uvicorn plutôt que gunicorn ?
+#   uvicorn est un serveur ASGI pur, optimisé pour les frameworks async.
+#   En production on pourra utiliser gunicorn + uvicorn workers.
+# ─────────────────────────────────────────────────────────────────────────────
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.30.0,<1.0.0
+# [standard] inclut uvloop (event loop C rapide) et httptools (parser HTTP C)
+
+# python-multipart est nécessaire pour le parsing des fichiers uploadés
+# (les rapports PDF/DOCX d'intervention fibre seront uploadés via l'API).
+python-multipart>=0.0.9
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2. BASE DE DONNÉES — SQLAlchemy + asyncpg + pgvector
+# ─────────────────────────────────────────────────────────────────────────────
+# SQLAlchemy : ORM Python de référence. On utilise le mode async (2.0+)
+#   pour ne pas bloquer l'event loop FastAPI lors des requêtes DB.
+#
+# asyncpg : driver PostgreSQL asynchrone écrit en C/Cython.
+#   C'est le driver le plus rapide pour PostgreSQL en Python async.
+#   SQLAlchemy l'utilise comme backend via `postgresql+asyncpg://`.
+#
+# pgvector : bindings Python pour l'extension pgvector de PostgreSQL.
+#   Fournit le type SQLAlchemy `Vector` pour déclarer des colonnes
+#   d'embeddings et effectuer des recherches par similarité (cosine, L2, IP).
+#
+# alembic : outil de migration de schéma DB (versionning des tables).
+#   Indispensable pour faire évoluer le schéma sans perdre de données.
+# ─────────────────────────────────────────────────────────────────────────────
+sqlalchemy[asyncio]>=2.0.0,<3.0.0
+asyncpg>=0.29.0,<1.0.0
+pgvector>=0.3.0,<1.0.0
+alembic>=1.13.0,<2.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. TRAITEMENT ASYNCHRONE — Celery + Redis
+# ─────────────────────────────────────────────────────────────────────────────
+# Celery : framework de task queue distribué.
+#   Les opérations lourdes (parsing de PDF, génération d'embeddings,
+#   exécution d'agents LangGraph) sont déléguées à des workers Celery
+#   pour ne pas bloquer l'API. Cela permet aussi de scaler horizontalement
+#   en ajoutant des workers.
+#
+# redis[hiredis] : client Python Redis avec le parser C hiredis.
+#   - Sert de MESSAGE BROKER (Celery pousse les tâches dans Redis)
+#   - Sert de RESULT BACKEND (les résultats des tâches y sont stockés)
+#   - hiredis accélère le parsing des réponses Redis (x10 sur gros payloads)
+# ─────────────────────────────────────────────────────────────────────────────
+celery>=5.4.0,<6.0.0
+redis[hiredis]>=5.0.0,<6.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. IA & RAG — LangChain + LangGraph
+# ─────────────────────────────────────────────────────────────────────────────
+# langchain-core : abstraction de base (LLM, prompts, output parsers, chains).
+#   On importe le core plutôt que le package monolithique `langchain` pour
+#   garder un arbre de dépendances léger et modulaire.
+#
+# langchain-community : intégrations communautaires (vector stores, loaders).
+#   Contient le VectorStore pgvector, les document loaders PDF, etc.
+#
+# langchain-openai : intégration OpenAI (ChatGPT, embeddings ada/3-small).
+#   Isolée dans son propre package pour pouvoir swapper le provider LLM
+#   facilement (Anthropic, Mistral, Ollama...) sans toucher au reste.
+#
+# langgraph : framework pour construire des agents autonomes sous forme
+#   de graphes d'état (state machines). Chaque nœud est une étape de
+#   raisonnement, et les arêtes définissent les transitions conditionnelles.
+#   Parfait pour notre agent de diagnostic/recommandation qui doit :
+#     1. Analyser le rapport → 2. Chercher des cas similaires → 3. Recommander
+#
+# langchain-postgres : intégration PostgreSQL native pour LangChain,
+#   inclut PGVector vectorstore optimisé.
+# ─────────────────────────────────────────────────────────────────────────────
+langchain-core>=0.3.0,<1.0.0
+langchain-community>=0.3.0,<1.0.0
+langchain-openai>=0.2.0,<1.0.0
+langchain-postgres>=0.0.12,<1.0.0
+langgraph>=0.2.0,<1.0.0
+langfuse>=2.50.0
+
+# langchain-google-genai : intégration Google Generative AI pour LangChain.
+#   Fournit GoogleGenerativeAIEmbeddings (modèle embedding-001, 768 dimensions)
+#   et ChatGoogleGenerativeAI. Utilisé comme provider d'embeddings principal
+#   car gratuit pour les petits volumes et performant.
+langchain-google-genai>=2.0.0,<3.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. PARSING DE DOCUMENTS — Extraction de texte depuis les rapports
+# ─────────────────────────────────────────────────────────────────────────────
+# pypdf : extraction de texte depuis les fichiers PDF.
+#   Léger, pur Python, sans dépendance système (contrairement à pdfminer).
+#   Suffisant pour des rapports techniques (texte structuré, pas de scan).
+#
+# python-docx : lecture/écriture de fichiers .docx (Word).
+#   Certains rapports d'intervention arrivent au format Word.
+#
+# unstructured : framework de parsing avancé multi-format.
+#   Gère les cas complexes (tableaux dans des PDF, layouts multi-colonnes).
+#   On l'utilisera comme fallback quand pypdf ne suffit pas.
+# ─────────────────────────────────────────────────────────────────────────────
+pypdf>=4.0.0,<5.0.0
+python-docx>=1.1.0,<2.0.0
+unstructured>=0.15.0,<1.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6. OBSERVABILITÉ / MCO — Langfuse
+# ─────────────────────────────────────────────────────────────────────────────
+# Langfuse : plateforme d'observabilité spécialisée LLM.
+#   - Trace chaque appel LLM (latence, tokens, coût, prompt/completion)
+#   - Visualise les chaînes et agents LangChain de bout en bout
+#   - Permet le scoring humain des réponses (feedback loop)
+#   - Dashboard pour le MCO (Maintien en Condition Opérationnelle)
+#
+# Pourquoi Langfuse plutôt que LangSmith ?
+#   - Open-source (self-hostable) → conformité données Télécom
+#   - Intégration native LangChain via CallbackHandler
+#   - Coût maîtrisé en production (pas de pricing par trace)
+# ─────────────────────────────────────────────────────────────────────────────
+langfuse>=2.50.0,<3.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 7. CONFIGURATION & VALIDATION
+# ─────────────────────────────────────────────────────────────────────────────
+# pydantic-settings : chargement typé des variables d'environnement.
+#   Lit depuis .env, variables système, ou fichiers de config.
+#   Valide les types au démarrage (pas de crash en runtime à cause
+#   d'une variable manquante ou mal typée).
+#
+# python-dotenv : chargement des fichiers .env en développement.
+#   Évite de polluer le shell avec des `export` manuels.
+# ─────────────────────────────────────────────────────────────────────────────
+pydantic-settings>=2.5.0,<3.0.0
+python-dotenv>=1.0.0,<2.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. UTILITAIRES
+# ─────────────────────────────────────────────────────────────────────────────
+# httpx : client HTTP async moderne (remplace requests en contexte async).
+#   Utilisé pour appeler des APIs externes (Langfuse, webhooks, etc.)
+#   depuis du code async sans bloquer l'event loop.
+#
+# tenacity : bibliothèque de retry avec backoff exponentiel.
+#   Indispensable pour les appels LLM qui peuvent échouer de façon
+#   transitoire (rate limits, timeouts, erreurs 5xx).
+# ─────────────────────────────────────────────────────────────────────────────
+httpx>=0.27.0,<1.0.0
+tenacity>=9.0.0,<10.0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. TESTS & QUALITÉ (dev dependencies)
+# ─────────────────────────────────────────────────────────────────────────────
+# pytest : framework de test. Standar de-facto en Python.
+# pytest-asyncio : support des tests async (await dans les tests).
+# pytest-cov : rapport de couverture de code.
+# ─────────────────────────────────────────────────────────────────────────────
+pytest>=8.0.0,<9.0.0
+pytest-asyncio>=0.24.0,<1.0.0
+pytest-cov>=5.0.0,<6.0.0

@@ -1,0 +1,46 @@
+# =============================================================================
+# EcoFibre Sync — .gitignore
+# =============================================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+venv/
+.venv/
+
+# --- Environment ---
+.env
+.env.local
+.env.*.local
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Node / Frontend ---
+node_modules/
+frontend/build/
+frontend/dist/
+.next/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Logs ---
+*.log
+
+# --- Test / Coverage ---
+.coverage
+htmlcov/
+.pytest_cache/

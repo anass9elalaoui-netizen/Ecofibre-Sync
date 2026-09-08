@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-slate-800/50 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-xl;
+  }
+  
+  .markdown-body {
+    @apply text-slate-300 leading-relaxed space-y-4;
+  }
+  
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    @apply text-white font-semibold mt-6 mb-3;
+  }
+  
+  .markdown-body h2 {
+    @apply text-xl border-b border-slate-700 pb-2;
+  }
+  
+  .markdown-body h3 {
+    @apply text-lg text-slate-200;
+  }
+  
+  .markdown-body p {
+    @apply my-3;
+  }
+  
+  .markdown-body ul {
+    @apply list-disc list-inside space-y-1 ml-4;
+  }
+  
+  .markdown-body ol {
+    @apply list-decimal list-inside space-y-1 ml-4;
+  }
+  
+  .markdown-body strong {
+    @apply text-white font-medium;
+  }
+  
+  .markdown-body code {
+    @apply bg-slate-800 text-eco-primary px-1.5 py-0.5 rounded text-sm font-mono border border-slate-700;
+  }
+}
